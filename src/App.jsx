@@ -5,7 +5,10 @@ import Chat from './components/Chat'
 // const socket = io('http://192.168.1.101:3000')
 
 //have to put the server ip after hosting
-const socket = io('https://gossipgrid-server.onrender.com')
+const socket = io('https://gossipgrid-server.onrender.com', {
+  transports: ['websocket', 'polling'],
+  withCredentials: true,
+})
 
 function App() {
   return (
