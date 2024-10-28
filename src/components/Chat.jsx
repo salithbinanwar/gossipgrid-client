@@ -7,14 +7,26 @@ import {
   IoSettingsOutline,
 } from 'react-icons/io5'
 
-import Footer from './Footer'
-
-import RoomModal from './RoomModal'
-
+import Avatar from './Avatar'
 import CopyButton from './CopyButton'
+import Footer from './Footer'
+import RoomModal from './RoomModal'
 import Settings from './Settings'
 
 const Chat = ({ socket }) => {
+  const [userColors] = useState(() => new Map())
+
+  // Add this function at the top level of your Chat component
+  const getUserColor = (username) => {
+    if (!userColors.has(username)) {
+      // Generate a pastel color with moderate saturation
+      const hue = Math.random() * 360
+      const color = `hsla(${hue}, 50%, 70%, 0.3)` // Transparent pastel color
+      userColors.set(username, color)
+    }
+    return userColors.get(username)
+  }
+
   const [message, setMessage] = useState('')
 
   const [messages, setMessages] = useState(() => {
@@ -524,25 +536,34 @@ const Chat = ({ socket }) => {
                       msg.username === username
                         ? 'justify-end'
                         : 'justify-start'
-                    }`}
+                    } items-start gap-2 group`}
                   >
+                    {msg.username !== username && (
+                      <div className="flex-shrink-0 mt-1">
+                        <Avatar
+                          name={msg.username}
+                          size="sm"
+                          color={getUserColor(msg.username)}
+                        />
+                      </div>
+                    )}
                     <div
-                      className={`max-w-[85%] md:max-w-[75%] p-3 rounded-2xl
-
-                  ${
-                    msg.username === username
-                      ? 'bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/30 rounded-tr-none'
-                      : 'bg-blue-500/20 backdrop-blur-sm border border-blue-500/30 rounded-tl-none'
-                  }
-
-                  transform hover:scale-[1.02] transition-transform duration-200
-
-                  animate-quickFade`}
+                      className={`max-w-[85%] md:max-w-[75%] px-3 py-2  rounded-2xl
+        ${
+          msg.username === username
+            ? 'bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/30 rounded-tr-none'
+            : 'bg-blue-500/20 backdrop-blur-sm border border-blue-500/30 rounded-tl-none'
+        }
+        transform hover:scale-[1.02] transition-transform duration-200
+        animate-quickFade`}
                     >
-                      {' '}
                       <div className="flex items-center justify-between gap-2 text-xs text-gray-400 mb-1">
-                        <span>{msg.username || 'Anonymous'}</span>
-
+                        <span
+                          className="font-medium"
+                          // style={{ color: getUserColor(msg.username) }}
+                        >
+                          {msg.username || 'Anonymous'}
+                        </span>
                         {currentRoom && (
                           <span className="text-cyan-400">Private Room</span>
                         )}
@@ -551,6 +572,15 @@ const Chat = ({ socket }) => {
                         {msg.content}
                       </p>
                     </div>
+                    {msg.username === username && (
+                      <div className="flex-shrink-0 mt-1">
+                        <Avatar
+                          name={msg.username}
+                          size="sm"
+                          color={getUserColor(msg.username)}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
 
