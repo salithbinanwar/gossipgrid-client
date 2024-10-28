@@ -17,7 +17,7 @@ function CopyButton({ textToCopy }) {
   return (
     <button
       onClick={handleCopy}
-      className={`p-2 rounded-full transition-colors duration-200 ${
+      className={`px-1 rounded-full transition-colors duration-200 ${
         copied ? 'text-blue-500' : 'text-gray-400 hover:text-gray-600'
       }`}
       title="Copy room ID"
