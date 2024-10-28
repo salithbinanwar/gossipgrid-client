@@ -612,7 +612,7 @@ const Chat = ({ socket }) => {
                 ? `Messaging in room ${currentRoom}...`
                 : 'Send a message to everyone...'
             }
-            className={`w-full p-3 md:p-4 pr-16 rounded-full bg-black/50 backdrop-blur-md border
+            className={`w-full p-3 md:p-4 pr-16 rounded bg-black/50 backdrop-blur-md border
 
         ${
           isSettingsOpen
