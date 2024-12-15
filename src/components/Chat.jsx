@@ -46,7 +46,7 @@ const Chat = ({ socket }) => {
   const [modalType, setModalType] = useState('')
 
   const [activePeople, setActivePeople] = useState(0)
-
+const [roomMembers, setRoomMembers] = useState(0);
   const [isScrollable, setIsScrollable] = useState(false)
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -117,58 +117,37 @@ const Chat = ({ socket }) => {
     })
 
     socket.on('message', (data) => {
-      if (data.username !== username) {
-        setMessages((prevMessages) => {
-          if (currentRoom) {
-            if (data.room === currentRoom) {
-              return [
-                ...prevMessages,
-
-                {
-                  role: 'other',
-
-                  content: data.message,
-
-                  id: Date.now(),
-
-                  username: data.username,
-
-                  room: data.room,
-
-                  isRoomMessage: true,
-
-                  timestamp: data.timestamp,
-                },
-              ]
-            }
-
-            return prevMessages
-          } else {
-            if (!data.isRoomMessage) {
-              return [
-                ...prevMessages,
-
-                {
-                  role: 'other',
-
-                  content: data.message,
-
-                  id: Date.now(),
-
-                  username: data.username,
-
-                  isRoomMessage: false,
-
-                  timestamp: data.timestamp,
-                },
-              ]
-            }
-
-            return prevMessages
+      setMessages((prevMessages) => {
+        // For room messages
+        if (data.isRoomMessage) {
+          if (currentRoom && data.room === currentRoom) {
+            return [...prevMessages, {
+              role: 'other',
+              content: data.message,
+              id: Date.now(),
+              username: data.username,
+              room: data.room,
+              isRoomMessage: true,
+              timestamp: data.timestamp
+            }];
           }
-        })
-      }
-    })
+          return prevMessages;
+        }
+        
+        // For global messages
+        if (!currentRoom && !data.isRoomMessage) {
+          return [...prevMessages, {
+            role: 'other',
+            content: data.message,
+            id: Date.now(),
+            username: data.username,
+            isRoomMessage: false,
+            timestamp: data.timestamp
+          }];
+        }
+        return prevMessages;
+      });
+    });
 
     socket.on('room_created', (roomId) => {
       setCurrentRoom(roomId)
@@ -215,6 +194,25 @@ const Chat = ({ socket }) => {
     socket.on('chatCleared', () => {
       setMessages([])
     })
+    
+
+  // Listen for room notifications
+  socket.on('room_notification', (data) => {
+    setMessages(prevMessages => [...prevMessages, {
+      id: Date.now(),
+      role: 'system',
+      content: data.message,
+      username: 'System',
+      isSystemMessage: true,
+      timestamp: new Date().toISOString()
+    }]);
+  });
+
+  // Listen for room members count
+  socket.on('room_members', (count) => {
+    // You might want to add a state for room members count
+    setRoomMembers(count); // Add this state if you haven't already
+  });
 
     return () => {
       socket.off('activePeople')
@@ -232,54 +230,44 @@ const Chat = ({ socket }) => {
       socket.off('left_room_success')
 
       socket.off('chatCleared')
+
+
+          socket.off('room_notification');
+    socket.off('room_members');
     }
   }, [socket, username, currentRoom])
 
-  const sendMessage = (e) => {
-    e.preventDefault()
-
-    const trimmedMessage = message.trim()
-
-    if (trimmedMessage) {
-      const messageData = {
-        message: trimmedMessage,
-
-        username: username,
-
-        room: currentRoom,
-      }
-
-      setMessages((prevMessages) => [
-        ...prevMessages,
-
-        {
-          role: 'user',
-
-          content: trimmedMessage,
-
-          id: Date.now(),
-
-          username: username,
-
-          room: currentRoom,
-
-          isRoomMessage: !!currentRoom,
-
-          timestamp: new Date().toISOString(),
-        },
-      ])
-
-      socket.emit('clientMessage', messageData)
-
-      setMessage('')
-
-      inputRef.current?.focus()
-
-      // Force scroll after sending message
-
-      setTimeout(forceScrollToBottom, 100)
+const sendMessage = (e) => {
+  e.preventDefault()
+  const trimmedMessage = message.trim()
+  if (trimmedMessage) {
+    const timestamp = new Date().toISOString()
+    const messageData = {
+      message: trimmedMessage,
+      username: username,
+      room: currentRoom,
+      timestamp: timestamp,
+      isRoomMessage: !!currentRoom // Add this flag
     }
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        role: 'user',
+        content: trimmedMessage,
+        id: Date.now(),
+        username: username,
+        room: currentRoom,
+        isRoomMessage: !!currentRoom,
+        timestamp: timestamp
+      },
+    ])
+    socket.emit('clientMessage', messageData)
+    setMessage('')
+    inputRef.current?.focus()
+    setTimeout(forceScrollToBottom, 100)
   }
+}
+
 
   const handleCreateRoom = () => {
     socket.emit('create_room', username)
@@ -288,10 +276,10 @@ const Chat = ({ socket }) => {
   const handleJoinRoom = (roomId) => {
     if (!roomId.trim()) {
       alert('Please enter a room ID')
-
       return
     }
-
+    // Clear messages when joining a new room
+    setMessages([])
     socket.emit('join_room', { room: roomId.trim(), username })
   }
 
@@ -529,60 +517,71 @@ const Chat = ({ socket }) => {
               </div>
             ) : (
               <div className="space-y-2">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${
-                      msg.username === username
-                        ? 'justify-end'
-                        : 'justify-start'
-                    } items-start gap-2 group`}
-                  >
-                    {msg.username !== username && (
-                      <div className="flex-shrink-0 mt-1">
-                        <Avatar
-                          name={msg.username}
-                          size="sm"
-                          color={getUserColor(msg.username)}
-                        />
-                      </div>
-                    )}
-                    <div
-                      className={`max-w-[85%] md:max-w-[75%] px-3 py-2  rounded-2xl
-        ${
-          msg.username === username
-            ? 'bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/30 rounded-tr-none'
-            : 'bg-blue-500/20 backdrop-blur-sm border border-blue-500/30 rounded-tl-none'
-        }
-        transform hover:scale-[1.02] transition-transform duration-200
-        animate-quickFade`}
-                    >
-                      <div className="flex items-center justify-between gap-2 text-xs text-gray-400 mb-1">
-                        <span
-                          className="font-medium"
-                          // style={{ color: getUserColor(msg.username) }}
-                        >
-                          {msg.username || 'Anonymous'}
-                        </span>
-                        {currentRoom && (
-                          <span className="text-cyan-400">Private Room</span>
-                        )}
-                      </div>
-                      <p className="text-white/90 whitespace-pre-wrap text-sm md:text-base">
-                        {msg.content}
-                      </p>
-                    </div>
-                    {msg.username === username && (
-                      <div className="flex-shrink-0 mt-1">
-                        <Avatar
-                          name={msg.username}
-                          size="sm"
-                          color={getUserColor(msg.username)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
+{messages.map((msg) => (
+  <div
+    key={msg.id}
+    className={`flex ${
+      msg.isSystemMessage
+        ? 'justify-center'
+        : msg.username === username
+        ? 'justify-end'
+        : 'justify-start'
+    } items-start gap-2 group`}
+  >
+    {!msg.isSystemMessage && msg.username !== username && (
+      <div className="flex-shrink-0 mt-1">
+        <Avatar
+          name={msg.username}
+          size="sm"
+          color={getUserColor(msg.username)}
+        />
+      </div>
+    )}
+    <div
+      className={`${
+        msg.isSystemMessage
+          ? 'bg-gray-500/20 backdrop-blur-sm border border-gray-500/30 px-3 py-1 rounded-full max-w-[85%] md:max-w-[75%] animate-quickFade'
+          : `max-w-[85%] md:max-w-[75%] px-3 py-2 rounded-2xl
+            ${
+              msg.username === username
+                ? 'bg-cyan-500/20 backdrop-blur-sm border border-cyan-500/30 rounded-tr-none'
+                : 'bg-blue-500/20 backdrop-blur-sm border border-blue-500/30 rounded-tl-none'
+            }
+            transform hover:scale-[1.02] transition-transform duration-200
+            animate-quickFade`
+      }`}
+    >
+      {msg.isSystemMessage ? (
+        <p className="text-gray-400 text-xs md:text-sm text-center">
+          {msg.content}
+        </p>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2 text-xs text-gray-400 mb-1">
+            <span className="font-medium">
+              {msg.username || 'Anonymous'}
+            </span>
+            {currentRoom && (
+              <span className="text-cyan-400">Private Room</span>
+            )}
+          </div>
+          <p className="text-white/90 whitespace-pre-wrap text-sm md:text-base">
+            {msg.content}
+          </p>
+        </>
+      )}
+    </div>
+    {!msg.isSystemMessage && msg.username === username && (
+      <div className="flex-shrink-0 mt-1">
+        <Avatar
+          name={msg.username}
+          size="sm"
+          color={getUserColor(msg.username)}
+        />
+      </div>
+    )}
+  </div>
+))}
 
                 <div
                   ref={messagesEndRef}
