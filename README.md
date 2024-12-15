@@ -40,7 +40,7 @@ A modern, real-time chat application that enables seamless communication through
 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/gossipgrid.git
+git clone https://github.com/salithbinanwar/gossipgrid-client.git
 cd gossipgrid
 # Install client dependencies
 cd client
